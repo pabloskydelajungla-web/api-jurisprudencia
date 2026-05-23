@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Query
-import requests
-from bs4 import BeautifulSoup
 from urllib.parse import quote_plus
 
 app = FastAPI(title="API Jurisprudencia Española")
+
+CENDOJ_URL = "https://www.poderjudicial.es/search/indexAN.jsp"
 
 @app.get("/")
 def home():
@@ -19,64 +19,23 @@ def buscar_jurisprudencia(
 ):
     busqueda = q
     if tribunal:
-        busqueda += f" {tribunal}"
+        busqueda = f"{q} {tribunal}"
 
-    # Búsqueda pública limitada sobre Poder Judicial / CENDOJ
-    url_busqueda = (
-        "https://www.google.com/search?q="
-        + quote_plus(f'site:poderjudicial.es/search/ {busqueda} jurisprudencia CENDOJ')
-    )
+    url_busqueda = f"{CENDOJ_URL}?texto={quote_plus(busqueda)}"
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
+    return {
+        "resultados": [
+            {
+                "id": "busqueda-cendoj",
+                "tribunal": tribunal or "No especificado",
+                "fecha": "No extraída",
+                "titulo": f"Búsqueda oficial CENDOJ: {busqueda}",
+                "resumen": "Se ha preparado una búsqueda en el buscador oficial del Poder Judicial/CENDOJ. Esta respuesta no representa todavía una sentencia concreta.",
+                "url": url_busqueda,
+                "tipo": "busqueda_oficial"
+            }
+        ]
     }
-
-    try:
-        r = requests.get(url_busqueda, headers=headers, timeout=10)
-        soup = BeautifulSoup(r.text, "html.parser")
-
-        resultados = []
-
-        for item in soup.select("a"):
-            href = item.get("href", "")
-            texto = item.get_text(" ", strip=True)
-
-            if "poderjudicial.es" in href and texto:
-                resultados.append({
-                    "id": f"resultado-{len(resultados)+1}",
-                    "tribunal": tribunal or "No especificado",
-                    "fecha": "No extraída",
-                    "titulo": texto[:180],
-                    "resumen": "Resultado localizado en fuente pública relacionada con Poder Judicial/CENDOJ.",
-                    "url": href
-                })
-
-            if len(resultados) >= 5:
-                break
-
-        if not resultados:
-            resultados = [{
-                "id": "sin-resultados",
-                "tribunal": tribunal or "No especificado",
-                "fecha": "No extraída",
-                "titulo": f"Búsqueda CENDOJ para: {busqueda}",
-                "resumen": "No se pudieron extraer resultados automáticamente. Consulta manual recomendada en el buscador oficial.",
-                "url": "https://www.poderjudicial.es/search/indexAN.jsp"
-            }]
-
-        return {"resultados": resultados}
-
-    except Exception as e:
-        return {
-            "resultados": [{
-                "id": "error",
-                "tribunal": tribunal or "No especificado",
-                "fecha": "No extraída",
-                "titulo": "Error buscando jurisprudencia",
-                "resumen": str(e),
-                "url": "https://www.poderjudicial.es/search/indexAN.jsp"
-            }]
-        }
 
 @app.get("/jurisprudencia/sentencia/{id}")
 def obtener_sentencia(id: str):
@@ -84,8 +43,57 @@ def obtener_sentencia(id: str):
         "id": id,
         "tribunal": "No especificado",
         "fecha": "No extraída",
-        "titulo": "Detalle no disponible automáticamente",
-        "fundamentos": "Esta versión inicial de la API busca resultados públicos, pero todavía no extrae el texto completo de la sentencia.",
+        "titulo": "Sentencia no extraída automáticamente",
+        "fundamentos": "Esta API todavía no extrae el texto completo de sentencias. Usa primero el enlace oficial CENDOJ devuelto por la búsqueda.",
         "fallo": "No disponible.",
-        "url": "https://www.poderjudicial.es/search/indexAN.jsp"
+        "url": CENDOJ_URL
+    }from fastapi import FastAPI, Query
+from urllib.parse import quote_plus
+
+app = FastAPI(title="API Jurisprudencia Española")
+
+CENDOJ_URL = "https://www.poderjudicial.es/search/indexAN.jsp"
+
+@app.get("/")
+def home():
+    return {
+        "status": "ok",
+        "message": "API jurisprudencia funcionando"
+    }
+
+@app.get("/jurisprudencia/buscar")
+def buscar_jurisprudencia(
+    q: str = Query(...),
+    tribunal: str | None = None
+):
+    busqueda = q
+    if tribunal:
+        busqueda = f"{q} {tribunal}"
+
+    url_busqueda = f"{CENDOJ_URL}?texto={quote_plus(busqueda)}"
+
+    return {
+        "resultados": [
+            {
+                "id": "busqueda-cendoj",
+                "tribunal": tribunal or "No especificado",
+                "fecha": "No extraída",
+                "titulo": f"Búsqueda oficial CENDOJ: {busqueda}",
+                "resumen": "Se ha preparado una búsqueda en el buscador oficial del Poder Judicial/CENDOJ. Esta respuesta no representa todavía una sentencia concreta.",
+                "url": url_busqueda,
+                "tipo": "busqueda_oficial"
+            }
+        ]
+    }
+
+@app.get("/jurisprudencia/sentencia/{id}")
+def obtener_sentencia(id: str):
+    return {
+        "id": id,
+        "tribunal": "No especificado",
+        "fecha": "No extraída",
+        "titulo": "Sentencia no extraída automáticamente",
+        "fundamentos": "Esta API todavía no extrae el texto completo de sentencias. Usa primero el enlace oficial CENDOJ devuelto por la búsqueda.",
+        "fallo": "No disponible.",
+        "url": CENDOJ_URL
     }
